@@ -64,104 +64,64 @@ app.get('/', (req, res) => {
 
 // 개별 게시글 조회
 app.get('/post/:id', (req, res) => {
-  conn.query("SELECT * FROM posttable WHERE id = ?", [req.params.id], (err, result) => {
-      if (err) {
-          console.error("게시글 조회 중 오류:", err);
-          return res.status(500).send("게시글 조회 중 오류가 발생했습니다.");
-      }
-      if (result.length === 0) {
-          return res.status(404).send("게시글을 찾을 수 없습니다.");
-      }
-      res.render('post', { post: result[0] });
-  });
+    conn.query("SELECT * FROM posttable WHERE id = ?", [req.params.id], (err, result) => {
+        if (err || result.length === 0) return res.send("Post not found.");
+        res.render('post', { post: result[0] });
+    });
 });
 
-//게시글 작성
-app.post('/add', (req, res) => {
-  const { title, content } = req.body;
-  const author = req.session.user.id;
+// 게시글 추가 (로그인 필요)
+app.post('/add', isAuthenticated, (req, res) => {
+    const { title, content } = req.body;
+    const author = req.session.user.id;
 
-  // 입력 유효성 검사
-  if (!title || !content) {
-    return res.status(400).send("제목과 내용을 모두 입력해주세요.");
-  }
-
-  // SQL 인젝션 방지
-  conn.query(
-    "INSERT INTO posttable (title, content, author) VALUES (?, ?, ?)",
-    [title, content, author],
-    (err) => {
-      if (err) {
-        console.error("게시글 작성 중 오류:", err);
-        return res.status(500).send("게시글 작성 중 오류가 발생했습니다.");
-      }
-
-      res.status(201).send("게시글이 성공적으로 작성되었습니다.");
-    }
-  );
+    conn.query("INSERT INTO posttable (title, content,author) VALUES (?, ?,?)", [title, content, author], (err) => {
+        if (err) return res.send("Error adding post.");
+        res.redirect('/');
+    });
 });
 
-//게시글 수정
+// 게시글 수정 (로그인 필요)
 app.post('/edit/:id', isAuthenticated, (req, res) => {
-  const postId = req.params.id;
-  const userId = req.session.user.id; // 로그인한 사용자 ID
-
-  // 게시글 작성자와 로그인한 사용자가 일치하는지 확인
-  conn.query("SELECT author FROM posttable WHERE id = ?", [postId], (err, result) => {
-      if (err) {
-          console.error("게시글 작성자 확인 중 오류:", err);
-          return res.status(500).send("게시글 수정 중 오류가 발생했습니다.");
-      }
-
-      if (result.length === 0) {
-          return res.status(404).send("게시글을 찾을 수 없습니다.");
-      }
-
-        
-  const authorId = result[0].author;
+    const postId = req.params.id;
+    const userId = req.session.user.id; // 로그인한 사용자 ID
+  
+    // 게시글 작성자와 로그인한 사용자가 일치하는지 확인
+    conn.query("SELECT author FROM posttable WHERE id = ?", [postId], (err, result) => {  
+    const authorId = result[0].author;
+    // 작성자와 로그인한 사용자가 일치하면 게시글 수정
   // 작성자와 로그인한 사용자가 일치하면 게시글 수정
   if (authorId !== userId) {
     return res.status(403).send("게시글 수정 권한이 없습니다.");
+}else{
+    conn.query("UPDATE posttable SET title = ?, content = ? WHERE id = ?", [req.body.title, req.body.content, req.params.id], (err) => {
+        if (err) return res.send("Error updating post.");
+        res.redirect('/');
+    });
 }
-    
-      conn.query("UPDATE posttable SET title = ?, content = ? WHERE id = ?", [req.body.title, req.body.content, postId], (err) => {
-          if (err) {
-              console.error("게시글 수정 중 오류:", err);
-              return res.status(500).send("게시글 수정 중 오류가 발생했습니다.");
-          }
-          res.redirect('/');
-      });
-  });
+    });
 });
 
 // 게시글 삭제 (로그인 필요)
 app.post('/delete/:id', isAuthenticated, (req, res) => {
-  const postId = req.params.id;
-  const userId = req.session.user.id; // 로그인한 사용자 ID
+    const postId = req.params.id;
+    const userId = req.session.user.id; // 로그인한 사용자 ID
 
-  // 게시글 작성자와 로그인한 사용자가 일치하는지 확인
-  conn.query("SELECT author FROM posttable WHERE id = ?", [postId], (err, result) => {
-      if (err) {
-          console.error("게시글 작성자 확인 중 오류:", err);
-          return res.status(500).send("게시글 수정 중 오류가 발생했습니다.");
-      }
+ // 게시글 작성자와 로그인한 사용자가 일치하는지 확인
+ conn.query("SELECT author FROM posttable WHERE id = ?", [postId], (err, result) => {
+    const authorId = result[0].author;
 
-      if (result.length === 0) {
-          return res.status(404).send("게시글을 찾을 수 없습니다.");
-      }
+    if (authorId !== userId) {
+        return res.status(403).send("게시글 삭제 권한이 없습니다.");
+    }else{
 
-      const authorId = result[0].author;
-
-      if (authorId !== userId) {
-          return res.status(403).send("게시글 삭제 권한이 없습니다.");
-      }
-
-      // 작성자와 로그인한 사용자가 일치하면 게시글 삭제
-      conn.query("DELETE FROM posttable WHERE id = ?", [req.params.id], (err) => {
+    // 작성자와 로그인한 사용자가 일치하면 게시글 삭제
+    conn.query("DELETE FROM posttable WHERE id = ?", [req.params.id], (err) => {
         if (err) return res.send("Error deleting post.");
         res.redirect('/');
     });
-  });
+    }
+});
 });
 
 // 검색 기능 (페이지네이션 적용)
@@ -220,26 +180,17 @@ app.get('/register', (req, res) => res.render('register'));
 
 // 로그인
 app.post('/login', (req, res) => {
-  const { username, password } = req.body;
-
-  conn.query("SELECT * FROM users WHERE username = ?", [username], (err, results) => {
-      if (err || results.length === 0) return res.status(400).send("사용자를 찾을 수 없습니다.");
-
-      bcrypt.compare(password, results[0].password, (err, isMatch) => {
-          if (err || !isMatch) return res.status(400).send("잘못된 비밀번호입니다.");
-          
-          // 세션에 사용자 ID를 저장 (userID)
-          req.session.user = { id: results[0].userid, username: results[0].username };
-                    // 세션에 저장된 사용자 ID 확인 (콘솔로 출력)
-                    console.log("로그인한 사용자 ID:", req.session.user.id);
-
-                    // 세션에 저장된 전체 사용자 정보도 확인할 수 있음
-                    console.log("세션에 저장된 사용자:", req.session.user)
-          res.redirect('/');
-      });
-  });
+    const { username, password } = req.body;
+    conn.query("SELECT * FROM users WHERE username = ?", [username], (err, results) => {
+        if (err || results.length === 0) return res.send("User not found.");
+        
+        bcrypt.compare(password, results[0].password, (err, isMatch) => {
+            if (err || !isMatch) return res.send("Incorrect password.");
+            req.session.user = { id: results[0].userid, username: results[0].username };
+            res.redirect('/');
+        });
+    });
 });
-
 
 app.get('/login', (req, res) => res.render('login'));
 

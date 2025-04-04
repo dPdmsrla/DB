@@ -49,9 +49,8 @@
         .delete-btn:hover {
             background-color: #c82333;
         }
-
-        /* 수정 폼의 스타일 */
-        input[type="text"], textarea {
+         /* 수정 폼의 스타일 */
+         input[type="text"], textarea {
             width: 100%;
             padding: 10px;
             border-radius: 5px;
@@ -71,37 +70,25 @@
     <div class="content-box">
         <p><%= post.content %></p>
     </div>
-    <script>
-        function checkAuthor(authorId, userId, action, postId) {
-            if (authorId !== userId) {
-                alert(action === 'delete' ? "게시글 삭제 권한이 없습니다." : "게시글 수정 권한이 없습니다.");
-            } else {
-                if (action === 'delete') {
-                    if (confirm("정말로 이 게시글을 삭제하시겠습니까?")) {
-                        deletePost(postId);
-                    }
-                } else {
-                    toggleEditForm(); // 작성자가 일치하면 수정 폼 표시
-                }
-            }
-        }
-        function deletePost(postId) {
-            fetch(`/delete/${postId}`, {
-                method: 'POST',
-            })
-            .then(response => {
-                if (response.ok) {
-                    window.location.href = '/'; // 삭제 성공 시 메인 페이지로 이동
-                } else {
-                    alert("게시글 삭제에 실패했습니다.");
-                }
-            })
-            .catch(error => {
-                console.error("게시글 삭제 중 오류:", error);
-                alert("게시글 삭제 중 오류가 발생했습니다.");
-            });
-        }
+
+    <!-- 수정하기 버튼 -->
+    <button onclick="toggleEditForm()">수정하기</button>
+
+    <!-- 수정 폼 -->
+    <div id="editForm" class="edit-form">
+        <form action="/edit/<%= post.id %>" method="POST">
+            <input type="text" name="title" value="<%= post.title %>" required>
+            <textarea name="content" required><%= post.content %></textarea>
+            <button type="submit">수정 완료</button>
+        </form>
+    </div>
     
+<!-- 삭제 버튼 -->
+<form action="/delete/<%= post.id %>" method="POST" style="display:inline;">
+    <button type="submit" class="delete-btn">삭제</button>
+</form>
+
+<script>
         function toggleEditForm() {
             var form = document.getElementById("editForm");
             if (form.style.display === "none") {
@@ -110,28 +97,9 @@
                 form.style.display = "none";
             }
         }
-    
-        // 삭제 버튼 확인 추가
-        document.querySelector(".delete-btn").addEventListener("click", function (event) {
-            if (!confirm("정말로 이 게시글을 삭제하시겠습니까?")) {
-                event.preventDefault();
-            }
-        });
+        
     </script>
-    
-    <button onclick="checkAuthor('<%= post.author %>', '<%= session.user.id %>', 'edit')">수정하기</button>
-    
-    <form action="/delete/<%= post.id %>" method="POST" style="display:inline;">
-        <button type="submit" class="delete-btn">삭제</button>
-    </form>
-    
-    <div id="editForm" class="edit-form">
-        <form action="/edit/<%= post.id %>" method="POST">
-            <input type="text" name="title" value="<%= post.title %>" required>
-            <textarea name="content" required><%= post.content %></textarea>
-            <button type="submit">수정 완료</button>
-        </form>
-    </div>
 
 </body>
 </html>
+
